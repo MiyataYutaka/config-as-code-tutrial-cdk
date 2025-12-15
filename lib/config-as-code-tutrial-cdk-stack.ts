@@ -9,7 +9,7 @@ import * as appconfig from 'aws-cdk-lib/aws-appconfig';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { NamingManager } from './utils/naming';
 import { AppConfig } from '../config/schema';
-import { CoreLambda } from './constructs/core-lambda';
+import { CoreLambda } from './constructs/lambda/core-lambda';
 
 interface StackProps extends cdk.StackProps {
   config: AppConfig; // バリデーション済みの設定オブジェクト
