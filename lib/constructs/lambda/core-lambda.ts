@@ -17,7 +17,17 @@ export class CoreLambda extends Construct {
 
     const { naming, detailName,...funcProps } = props;
 
+    // 1. デフォルト設定の定義
     const defaultProps: Partial<nodejs.NodejsFunctionProps> = {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.ARM_64,
+      logRetention: cdk.aws_logs.RetentionDays.ONE_MONTH,
+      tracing: lambda.Tracing.ACTIVE,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        externalModules: ['aws-sdk', 'mysql2'], // Layer利用時は除外
+      },
       timeout: cdk.Duration.seconds(10),
       memorySize: 256,
       environment: {
@@ -25,19 +35,29 @@ export class CoreLambda extends Construct {
       },
     };
 
-    // 命名規則の適用: <Org>-<System>-<Service>-lambda-<detail>
-    const resourceName = naming.generate('lambda', detailName);
+    // 2. 環境変数のマージ
+    // デフォルトの環境変数と、ユーザー指定の環境変数を結合します
+    const mergedEnvironment = {
+     ...defaultProps.environment,
+     ...funcProps.environment,
+      // 必要に応じて強制的に入れたい環境変数
+      TZ: 'Asia/Tokyo', 
+      NODE_OPTIONS: '--enable-source-maps', // スタックトレースを見やすくする
+    };
 
+    // 3. 設定のマージとLambda作成
+    // funcProps (Configからの値) が defaultProps を上書きします
     this.function = new nodejs.NodejsFunction(this, 'Function', {
-     ...funcProps,
-      functionName: resourceName, // 名前を強制上書き
-      runtime: lambda.Runtime.NODEJS_20_X, // 組織標準ランタイム
+     ...defaultProps, // デフォルト値を展開
+     ...funcProps,    // ユーザー指定値で上書き (メモリサイズなどはここから来る)      
+      environment: mergedEnvironment,
+      // 命名規則の適用 (これは上書きさせない)
+      functionName: naming.generate('lambda', detailName),
+      // バンドリングオプションのマージ (深い階層のマージが必要な場合)
       bundling: {
-        minify: true,
-        sourceMap: true,
-        externalModules: ['aws-sdk', 'mysql2'], // Layer利用時は除外
+       ...defaultProps.bundling,
        ...funcProps.bundling,
-      },
+      }
     });
   }
 }
